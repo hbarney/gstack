@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+**Local paid runs from `eval:bg` now set `EVALS_RUN_ID`, so the native-capture cases start instead of failing in 0 seconds.** CI sets `EVALS_RUN_ID` per slice, but `bun run eval:bg:pr --local` launched without it, and the qa-callers, ship-docsync and qa-functional cases refuse to start without it. In GSTA-70's local /ship run, 17 of the 26 selected behaviors failed that way for $0. A failure like that is a launch failure, not a verdict, so the local run told you nothing about those cases.
+
+### Fixed
+- **`scripts/eval-bg.ts`**: the local backend launches through a new `launchLocal`. It exports `EVALS_RUN_ID` as the run-scoped log's name, reduced to `[A-Za-z0-9_.-]`, and keeps a value you exported yourself. The id is written on the log's second line, so you can find the run's native captures. `--help` says so. Dispatched CI runs are unchanged.
+
+### Tests
+- `test/eval-detach-timeout-floor.test.ts`: a detached child launched by `launchLocal` sees a safe `EVALS_RUN_ID` named after its log, and an exported id is kept. A source check confirms that the local backend launches through `launchLocal`.
+
+## [Unreleased]
+
 **`gstack-team-init required` now blocks skills when its gate can't run, instead of letting them through.** Issue #3319 (exGeni): the required-mode Skill hook is a `node -e` launcher. On a teammate's Mac or Linux machine without Node.js, the shell exits 127 with nothing on stdout. If `.claude/hooks/check-gstack.cjs` is missing, node exits 1. Claude Code treats any exit other than 0 or 2 as a non-blocking error, so in both cases the Skill call went ahead on exactly the machine the gate is for. A live Claude Code 2.1.310 session with node off PATH and no gstack install ran the skill.
 
 ### Fixed
