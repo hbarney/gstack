@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+**The session-start updater no longer skips because of its own session's workflow lease, and the autostash tests stop failing their first pass in Free Tests.** Since #3385, `gstack-session-update` skips the fast-forward while another session holds a workflow lease, and it means to ignore the session that started it (`--exclude-ancestry-of`). The check runs in the forked background updater, though, and passed the hook's own `$$`, which has exited by then, so the ancestry walk excluded nothing. A Claude Code process that had already run a skill (and so held a lease) and then started a session again in the same process (`/clear`, resume or compaction) logged `SKIP leased pid=<its own pid>` and never updated. `test/session-update-autostash.test.ts` hit the same gap plus a fixture leak: its first two fixtures spawned the updater with the whole parent environment, so it read the test preload's `GSTACK_LEASE_DIR`, which every test file in the same Bun process shares. A lease another file left there gave "Received: SKIP leased pid=3196/1m" where UPDATING or PULL_FAILED was expected, in 13 Free Tests runs since #3385 merged (each passed on the serial retry).
+
+### Fixed
+- **`bin/gstack-session-update`**: before it forks, the hook resolves its caller's harness pid with `gstack_harness_pid "$PPID"` (`bin/gstack-harness-pid.sh`), the same derivation `bin/gstack-skill-start` uses for the pid it leases, and the background lease check excludes that pid's ancestry. Leases held by other live sessions still skip the update. `bin/gstack-upgrade` runs its check in the foreground, so its `$$` is alive and it is unchanged.
+
+### Tests
+- `test/session-update-autostash.test.ts`: every fixture now runs the updater with its own `GSTACK_STATE_ROOT` (the top of the state-root chain, instead of `GSTACK_STATE_DIR`, which an inherited `GSTACK_HOME` outranks) and its own `GSTACK_LEASE_DIR`. A negative control holds a live lease in the shared preload lease directory, confirms the ambient environment sees it, and shows the fixture still updates; it fails with "SKIP leased" without the fixture change. A positive case shows the fixture's own live lease still skips the update.
+- `test/session-update-stages.test.ts`: the starting session's own lease (the test process, behind a `/bin/sh -c` wrapper as a hook runner would use) no longer blocks the update. It fails on main with `SKIP leased`. The other session-update test files already pass an explicit environment, so their leases resolve to the fixture install's own git dir.
+
+### Gate integrity
+- No threshold, budget, timeout, trial count, case kind or assertion changed. The lease rule is narrower in one respect only: the starting session's own harness and its ancestors no longer count as holders, which is what `--exclude-ancestry-of` promised.
+
+## [Unreleased]
+
 **A design doc edited in host plan mode no longer goes stale for the plan reviews (#542).** When /office-hours ran inside Claude Code's plan mode, the design doc lived twice: gstack's copy under `~/.gstack/projects/<slug>/` and the host's plan file under `.claude/plans/`. Later edits went only to the plan file, so /plan-ceo-review and /plan-eng-review read the older gstack copy and called it the source of truth. The gstack design doc stays the single source (Garry, Oct 17: "designdoc"). Edits made in the plan copy are now written through to it, and every plan review is warned when the copy is newer.
 
 ### Fixed
