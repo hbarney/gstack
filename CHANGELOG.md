@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+**Windows free tests now also run on every push to main.** `windows-free-tests.yml` ran on pull requests and dispatch only: 194 PR runs, 6 dispatches and 0 pushes in its last 200 runs. Merge trains dispatch only `free-tests.yml` on the train branch. So no Windows run ever saw a train's combined tree or main after a merge, and a Windows break caused by two individually green PRs only surfaced on the next unrelated PR. Found while working on GSTA-68.
+
+### Fixed
+- **`.github/workflows/windows-free-tests.yml`**: adds `push: branches: [main]`, the same trigger free-tests.yml already has. The run uses the existing per-run concurrency group, and `record_durations` stays dispatch-only (on a push, `inputs.record_durations` is empty, so the lane runs and the recorder skips). Cost: about 40 job-minutes on GitHub's free `windows-latest` runners per merge.
+
+### Tests
+- `test/windows-native-workflows.test.ts` pins the new trigger set and requires the push trigger to be limited to main.
+
 ## [1.91.216.0] - 2026-10-25
 
 **/sync-gbrain refuses an active autopilot before it touches the brain's source list (#3360, part 2; ported from #3362 by @exGeni).** The code stage checked for a running `gbrain autopilot` only right before its destructive walk. By then it had already cleaned up legacy sources, renamed a source and run `gbrain sources add`, so a refused run still registered a source it never synced.
